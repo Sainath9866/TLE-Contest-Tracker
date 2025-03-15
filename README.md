@@ -3,6 +3,7 @@
 <div align="center">
   <img src="assets/demo.gif" alt="TLE Contest Tracker Demo" width="100%">
 </div>
+<br/>
 
 [Live Demo](https://tle-contest-tracker.vercel.app/) | [Video Demo](https://youtu.be/hHWDwNRfZm4)
 
