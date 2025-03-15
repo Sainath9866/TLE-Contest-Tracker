@@ -12,6 +12,10 @@ interface VideoData {
   [key: number]: YouTubeVideo;
 }
 
+interface VideoInfo {
+  [key: number]: YouTubeVideo;
+}
+
 export default function SolutionPage() {
   const { contests, loading, error } = usePastContests();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
@@ -65,7 +69,7 @@ export default function SolutionPage() {
 
   useEffect(() => {
     async function fetchVideoData() {
-      const videoInfo: VideoData = {};
+      const videoInfo: VideoInfo = {};
       
       for (const contest of contests) {
         const video = await findVideoInPlaylist(contest.name, contest.platform);
