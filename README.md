@@ -6,7 +6,7 @@
 
 A comprehensive platform to track competitive programming contests and their solutions. Built with Next.js and TypeScript.
 
-[View Demo Video](./assets/demo.mp4)
+[View Demo Video](https://youtu.be/hHWDwNRfZm4)
 
 ## Features
 
