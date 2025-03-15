@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { CListResponse, CListContest } from '@/types/clist';
 
 interface Contest {
   id: number;
@@ -38,7 +39,7 @@ export async function GET() {
       throw new Error(`CLIST API returned ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as CListResponse;
     console.log('CLIST API Response:', data); // Debug log
 
     if (!data || !data.objects || !Array.isArray(data.objects)) {
@@ -52,7 +53,7 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    const contests: Contest[] = data.objects.map((contest: any) => {
+    const contests: Contest[] = data.objects.map((contest: CListContest) => {
       // Validate required fields
       if (!contest.id || !contest.event || !contest.resource || !contest.start || !contest.end) {
         console.error('Invalid contest data:', contest);

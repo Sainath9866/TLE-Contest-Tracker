@@ -2,15 +2,22 @@
 import { usePastContests } from '@/hooks/usePastContests';
 import { useState, useRef, useEffect } from 'react';
 import { findVideoInPlaylist } from '@/utils/youtube';
+import Image from 'next/image';
+import { Contest } from '@/types/contest';
+import { YouTubeVideo } from '@/types/youtube';
 
 type FilterType = 'all' | 'leetcode' | 'codeforces' | 'codechef';
+
+interface VideoData {
+  [key: number]: YouTubeVideo;
+}
 
 export default function SolutionPage() {
   const { contests, loading, error } = usePastContests();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [videoData, setVideoData] = useState<{ [key: number]: any }>({});
+  const [videoData, setVideoData] = useState<VideoData>({});
 
   const filterOptions = [
     { label: 'All Platforms', value: 'all' },
@@ -27,41 +34,11 @@ export default function SolutionPage() {
     return true;
   });
 
-  const filterContests = (contests: any[]) => {
+  const filterContests = (contests: Contest[]) => {
     if (activeFilter === 'all') return contests;
     return contests.filter(contest => 
       contest.platform.toLowerCase() === activeFilter
     );
-  };
-
-  const getStandingsUrl = (contest: any) => {
-    const platform = contest.platform.toLowerCase();
-    switch (platform) {
-      case 'codeforces':
-        return `${contest.url}/standings`;
-      case 'leetcode':
-        return `${contest.url}/ranking`;
-      case 'codechef':
-        const contestId = contest.url.split('/').pop();
-        return `${contest.url}/rankings/${contestId}`;
-      default:
-        return contest.url;
-    }
-  };
-
-  const getSolutionsUrl = (contest: any) => {
-    const platform = contest.platform.toLowerCase();
-    switch (platform) {
-      case 'codeforces':
-        return `${contest.url}/problemset`;
-      case 'leetcode':
-        return `${contest.url}/solution`;
-      case 'codechef':
-        const contestId = contest.url.split('/').pop();
-        return `${contest.url}/solutions/${contestId}`;
-      default:
-        return contest.url;
-    }
   };
 
   const formatDate = (date: Date) => {
@@ -88,7 +65,7 @@ export default function SolutionPage() {
 
   useEffect(() => {
     async function fetchVideoData() {
-      const videoInfo: { [key: number]: any } = {};
+      const videoInfo: VideoData = {};
       
       for (const contest of contests) {
         const video = await findVideoInPlaylist(contest.name, contest.platform);
@@ -174,9 +151,11 @@ export default function SolutionPage() {
               // If we have a video, show thumbnail and link to YouTube
               <div className="space-y-4">
                 <div className="relative">
-                  <img
+                  <Image
                     src={videoData[contest.id].thumbnailUrl}
                     alt="Video thumbnail"
+                    width={640}
+                    height={360}
                     className="w-full rounded-lg shadow-sm"
                   />
                   <a

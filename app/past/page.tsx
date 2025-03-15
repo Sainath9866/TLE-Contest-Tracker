@@ -2,6 +2,7 @@
 import { usePastContests } from '@/hooks/usePastContests';
 import { ContestCard } from '@/components/ContestCard';
 import { useState, useRef, useEffect } from 'react';
+import { Contest } from '@/types/contest'; // Add this import
 
 type FilterType = 'all' | 'leetcode' | 'codeforces' | 'codechef';
 
@@ -29,7 +30,7 @@ export default function PastContests() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filterContests = (contests: any[]) => {
+  const filterContests = (contests: Contest[]) => {
     if (activeFilter === 'all') return contests;
     return contests.filter(contest => 
       contest.platform.toLowerCase() === activeFilter

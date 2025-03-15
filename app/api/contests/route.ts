@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { CListResponse, CListContest } from '@/types/clist';
 
 interface Contest {
   id: number;
@@ -40,7 +41,7 @@ export async function GET() {
       throw new Error(`API returned ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as CListResponse;
     
 
     if (!data || !data.objects) {
@@ -48,7 +49,7 @@ export async function GET() {
       throw new Error('Invalid API response structure');
     }
 
-    const contests: Contest[] = data.objects.map((contest: any) => {
+    const contests: Contest[] = data.objects.map((contest: CListContest) => {
       const startTime = new Date(contest.start);
       const endTime = new Date(contest.end);
       

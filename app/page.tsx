@@ -2,6 +2,7 @@
 import { useContests } from '@/hooks/useContests';
 import { ContestCard } from '@/components/ContestCard';
 import { useState, useRef, useEffect } from 'react';
+import { Contest } from '@/types/contest';
 
 type FilterType = 'all' | 'leetcode' | 'codeforces' | 'codechef' | 
                  'leetcode+codeforces' | 'leetcode+codechef' | 'codechef+codeforces';
@@ -33,7 +34,7 @@ export default function Home() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filterContests = (contests: any[]) => {
+  const filterContests = (contests: Contest[]) => {
     switch (activeFilter) {
       case 'all':
         return contests;
