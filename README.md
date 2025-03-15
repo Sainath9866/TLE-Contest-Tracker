@@ -1,36 +1,123 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TLE Contest Tracker
 
-## Getting Started
+<div align="center">
+  <img src="assets/demo.gif" alt="TLE Contest Tracker Demo" width="100%">
+</div>
 
-First, run the development server:
+A comprehensive platform to track competitive programming contests and their solutions. Built with Next.js and TypeScript.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+[View Demo Video](./assets/demo.mp4)
+
+## Features
+
+### 1. Contest Tracking
+- **Data Source**: Uses [CLIST API](https://clist.by/api/v2/) to fetch contest information
+- **Supported Platforms**:
+  - CodeForces
+  - LeetCode
+  - CodeChef
+- **Contest Types**:
+  - Upcoming contests (next 24 hours)
+  - Past contests (last 2 months)
+  - Real-time contest status updates
+
+### 2. Video Solutions Integration
+- **Platform**: YouTube Data API v3
+- **Playlists**:
+  - CodeForces: Solutions for regular rounds
+  - LeetCode: Contest solutions and explanations
+  - CodeChef: Solutions for Starters contests
+- **Features**:
+  - Automatic video matching with contest names
+  - Thumbnail previews
+  - Direct links to video solutions
+  - Local caching to reduce API calls
+
+### 3. Bookmark System
+- **Storage**: Browser's LocalStorage
+- **Features**:
+  - Persistent bookmarks across sessions
+  - Quick access to favorite contests
+  - Toggle bookmark status
+  - Dedicated bookmarks page
+
+## Technical Implementation
+
+### Contest Data Fetching
+```typescript
+// Fetches upcoming contests
+GET /api/contests
+// Parameters: None
+// Returns: Array of upcoming and ongoing contests
+
+// Fetches past contests
+GET /api/pastcontests
+// Parameters: None
+// Returns: Array of contests from the last 2 months (we can increase the limit)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### YouTube Integration
+```typescript
+// Playlist IDs for each platform
+const PLAYLIST_IDS = {
+  codeforces: 'PLcXpkI9A-RZLUfBSNp-YQBCOezZKbDSgB',
+  codechef: 'PLcXpkI9A-RZIZ6lsE0KCcLWeKNoG45fYr',
+  leetcode: 'PLcXpkI9A-RZI6FhydNz3JBt_-p_i25Cbr'
+};
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+// Video matching system
+// - Intelligent title matching for each platform
+// - Fetching the thumbnail url and displaying to the user
+// - Special handling for CodeForces rounds
+// - Clean title matching for CodeChef contests
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Bookmark System
+```typescript
+// LocalStorage Structure
+{
+  "bookmarks": [
+    {
+      id: number,
+      name: string,
+      platform: string,
+      url: string,
+      startTime: Date,
+      endTime: Date,
+      duration: number,
+      status: 'upcoming' | 'ongoing' | 'past'
+    }
+  ]
+}
+```
 
-## Learn More
+## Environment Variables
+```bash
+# Required environment variables
+CLIST_USERNAME=your_clist_username
+CLIST_API_KEY=your_clist_api_key
+NEXT_PUBLIC_YOUTUBE_API_KEY=your_youtube_api_key
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Getting Started
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create `.env.local` with required environment variables
+4. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API Usage Limits
+- CLIST API: Rate limits apply based on your subscription
+- YouTube Data API: Daily quota limits apply
+- Local caching implemented to optimize API calls (one YouTube API call every 24 hours)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Contributing
+Feel free to open issues and submit PRs for improvements.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+MIT License
