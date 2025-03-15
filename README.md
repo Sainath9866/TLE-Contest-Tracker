@@ -4,6 +4,10 @@
   <img src="assets/demo.gif" alt="TLE Contest Tracker Demo" width="100%">
 </div>
 
+[Live Demo](https://tle-contest-tracker.vercel.app/) | [Video Demo](https://youtu.be/hHWDwNRfZm4)
+
+> **Note**: When viewing solutions, please wait for a minute or two as it may take time to fetch data from YouTube. This fetch happens only once per day - subsequent requests will use cached data for faster loading.
+
 A comprehensive platform to track competitive programming contests and their solutions. Built with Next.js and TypeScript.
 
 [View Demo Video](https://youtu.be/hHWDwNRfZm4)
