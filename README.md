@@ -5,7 +5,7 @@
 </div>
 <br/>
 
-[Live Demo](https://tle-contest-tracker.vercel.app/) 
+[Live Contest Tracker](https://tle-contest-tracker.vercel.app/) 
 
 > **Note**: When viewing solutions, please wait for a minute or two as it may take time to fetch data from YouTube. This fetch happens only once per day - subsequent requests will use cached data for faster loading.
 
