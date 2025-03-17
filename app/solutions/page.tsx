@@ -22,6 +22,7 @@ export default function SolutionPage() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [videoData, setVideoData] = useState<VideoData>({});
+  const [isLoadingVideos, setIsLoadingVideos] = useState(true);
 
   const filterOptions = [
     { label: 'All Platforms', value: 'all' },
@@ -69,16 +70,23 @@ export default function SolutionPage() {
 
   useEffect(() => {
     async function fetchVideoData() {
+      setIsLoadingVideos(true);
       const videoInfo: VideoInfo = {};
       
-      for (const contest of contests) {
-        const video = await findVideoInPlaylist(contest.name, contest.platform);
-        if (video) {
-          videoInfo[contest.id] = video;
+      try {
+        for (const contest of contests) {
+          const video = await findVideoInPlaylist(contest.name, contest.platform);
+          if (video) {
+            videoInfo[contest.id] = video;
+          }
         }
+        
+        setVideoData(videoInfo);
+      } catch (error) {
+        console.error('Error fetching video data:', error);
+      } finally {
+        setIsLoadingVideos(false);
       }
-      
-      setVideoData(videoInfo);
     }
 
     if (contests.length > 0) {
@@ -151,8 +159,15 @@ export default function SolutionPage() {
             <p className="text-sm text-gray-600 mb-4">
               {formatDate(contest.startTime)}
             </p>
-            {videoData[contest.id] ? (
-              // If we have a video, show thumbnail and link to YouTube
+            {isLoadingVideos ? (
+              <div className="text-center py-8">
+                <div className="animate-pulse flex flex-col items-center space-y-3">
+                  <div className="w-full h-48 bg-gray-200 rounded-lg"></div>
+                  <div className="text-sm font-bold">Loading solution...</div>
+                </div>
+              </div>
+            ) : videoData[contest.id] ? (
+              // Existing video display code
               <div className="space-y-4">
                 <div className="relative">
                   <Image
@@ -185,8 +200,11 @@ export default function SolutionPage() {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-4">
-                <p className="text-gray-500">No video solution available yet</p>
+              <div className="text-center py-8">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <p className="mt-2 text-sm text-gray-500">No video solution available yet</p>
               </div>
             )}
           </div>
