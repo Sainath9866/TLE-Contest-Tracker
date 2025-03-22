@@ -84,7 +84,7 @@ export default function Home() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col space-y-6 mb-8">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-800">Upcoming Contests</h1>
+          <h1 className="text-3xl font-bold text-gray-700">Upcoming Contests</h1>
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
