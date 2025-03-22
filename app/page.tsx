@@ -61,6 +61,13 @@ export default function Home() {
     }
   };
 
+  const adjustTime = (date: Date) => {
+    const newDate = new Date(date);
+    newDate.setHours(newDate.getHours() - 5);
+    newDate.setMinutes(newDate.getMinutes() - 30);
+    return newDate;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -120,7 +127,14 @@ export default function Home() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredContests.map((contest) => (
-          <ContestCard key={contest.id} contest={contest} />
+          <ContestCard 
+            key={contest.id} 
+            contest={{
+              ...contest,
+              startTime: adjustTime(contest.startTime),
+              endTime: adjustTime(contest.endTime)
+            }} 
+          />
         ))}
       </div>
     </div>
