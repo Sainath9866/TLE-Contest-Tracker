@@ -1,5 +1,22 @@
 import { NextResponse } from 'next/server';
-import { CListResponse, CListContest } from '@/types/clist';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 9;
+
+const DEFAULT_TIMEOUT = 3500;
+const UA = 'TLEContestTracker/1.0 (+https://tle-contest-tracker.vercel.app)';
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const headers = new Headers(init.headers as HeadersInit | undefined);
+    if (!headers.has('User-Agent')) headers.set('User-Agent', UA);
+    return await fetch(url, { ...init, signal: controller.signal, cache: 'no-store', headers });
+  } finally {
+    clearTimeout(id);
+  }
+}
 
 interface Contest {
   id: number;
@@ -14,18 +31,6 @@ interface Contest {
   status: 'upcoming' | 'ongoing' | 'past';
 }
 
-// Fallback types for Kontests API
-interface KontestsContest {
-  name: string;
-  url: string;
-  start_time: string;
-  end_time: string;
-  duration: string; // seconds as string
-  site: string; // e.g., 'CodeForces', 'CodeChef', 'LeetCode'
-  status: 'BEFORE' | 'CODING' | 'FINISHED';
-}
-
-// Direct API types
 interface CFContestListResponse {
   status: 'OK' | 'FAILED';
   result: Array<{
@@ -57,14 +62,6 @@ interface CodeChefResponse {
   }>;
 }
 
-function platformFromSite(site: string): string {
-  const s = site.toLowerCase();
-  if (s.includes('codeforces')) return 'codeforces';
-  if (s.includes('codechef')) return 'codechef';
-  if (s.includes('leetcode')) return 'leetcode';
-  return site.toLowerCase();
-}
-
 function generateId(site: string, name: string, start: string | number): number {
   const seed = typeof start === 'number' ? start : new Date(start).getTime();
   const key = `${site}|${name}|${seed}`;
@@ -84,61 +81,9 @@ function toISTString(date: Date): string {
   }).format(date);
 }
 
-async function fetchFromKontests(): Promise<Contest[]> {
-  try {
-    const endpoints = [
-      'https://kontests.net/api/v1/codeforces',
-      'https://kontests.net/api/v1/code_chef',
-      'https://kontests.net/api/v1/leet_code',
-    ];
-
-    const results = await Promise.allSettled(
-      endpoints.map((u) => fetch(u).then((r) => r.json() as Promise<KontestsContest[]>))
-    );
-
-    const flattened: KontestsContest[] = results.flatMap((res) =>
-      res.status === 'fulfilled' && Array.isArray(res.value) ? res.value : []
-    );
-
-    const mapped: Contest[] = flattened
-      .map((c) => {
-        const startTime = new Date(c.start_time);
-        const endTime = new Date(c.end_time);
-        const status: Contest['status'] = c.status === 'BEFORE' ? 'upcoming' : c.status === 'CODING' ? 'ongoing' : 'past';
-        return {
-          id: generateId(c.site, c.name, c.start_time),
-          name: c.name,
-          platform: platformFromSite(c.site),
-          url: c.url,
-          startTime,
-          endTime,
-          startTimeIST: toISTString(startTime),
-          endTimeIST: toISTString(endTime),
-          duration: Number(c.duration) / 3600,
-          status,
-        } as Contest;
-      })
-      .filter((c) => c.status === 'upcoming' || c.status === 'ongoing');
-
-    mapped.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-
-    const seen = new Set<string>();
-    const deduped = mapped.filter((c) => {
-      const key = `${c.platform}|${c.name}|${c.startTime.toISOString()}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    return deduped;
-  } catch {
-    return [];
-  }
-}
-
 async function fetchFromCodeforcesDirect(): Promise<Contest[]> {
   try {
-    const res = await fetch('https://codeforces.com/api/contest.list');
+    const res = await fetchWithTimeout('https://codeforces.com/api/contest.list');
     const data = (await res.json()) as CFContestListResponse;
     if (data.status !== 'OK') return [];
     const nowMs = Date.now();
@@ -174,7 +119,7 @@ async function fetchFromLeetCodeDirect(): Promise<Contest[]> {
         query getContestList { allContests { title startTime duration titleSlug } }
       `
     };
-    const res = await fetch('https://leetcode.com/graphql', {
+    const res = await fetchWithTimeout('https://leetcode.com/graphql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -207,7 +152,7 @@ async function fetchFromLeetCodeDirect(): Promise<Contest[]> {
 
 async function fetchFromCodeChefDirect(): Promise<Contest[]> {
   try {
-    const res = await fetch('https://www.codechef.com/api/list/contests/all');
+    const res = await fetchWithTimeout('https://www.codechef.com/api/list/contests/all');
     const json = (await res.json()) as CodeChefResponse;
     const future = json.future_contests ?? [];
     return future.map((c) => {
@@ -251,72 +196,11 @@ async function fetchFromDirectSources(): Promise<Contest[]> {
 }
 
 export async function GET() {
-  try {
-    const API_USERNAME = process.env.CLIST_USERNAME;
-    const API_KEY = process.env.CLIST_API_KEY;
-
-    if (!API_USERNAME || !API_KEY) {
-      throw new Error('API credentials not configured');
-    }
-
-    const now = new Date();
-    const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
-
-    const url = `https://clist.by/api/v2/contest/?username=${API_USERNAME}&api_key=${API_KEY}&resource__regex=codeforces.com|codechef.com|leetcode.com&start__gt=${threeHoursAgo.toISOString()}`;
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
-    }
-
-    const data = (await response.json()) as CListResponse;
-
-    if (!data || !data.objects) {
-      throw new Error('Invalid API response structure');
-    }
-
-    const contests: Contest[] = data.objects.map((contest: CListContest) => {
-      const startTime = new Date(contest.start);
-      const endTime = new Date(contest.end);
-
-      return {
-        id: contest.id,
-        name: contest.event,
-        platform: contest.resource.split('.')[0],
-        url: contest.href,
-        startTime: startTime,
-        endTime: endTime,
-        startTimeIST: toISTString(startTime),
-        endTimeIST: toISTString(endTime),
-        duration: (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60),
-        status: now < startTime ? 'upcoming' : now < endTime ? 'ongoing' : 'past',
-      };
-    });
-
-    contests.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-
-    const upcomingContests = contests.filter((contest) => contest.status === 'upcoming');
-    const ongoingContests = contests.filter((contest) => contest.status === 'ongoing');
-    const relevantContests = [...ongoingContests, ...upcomingContests];
-
-    console.log('[api/contests] source=clist count=', relevantContests.length);
-    return NextResponse.json(relevantContests, { headers: { 'x-contest-source': 'clist' } });
-  } catch {
-    // Try direct sources first
-    const direct = await fetchFromDirectSources();
-    if (direct.length > 0) {
-      console.log('[api/contests] source=direct count=', direct.length);
-      return NextResponse.json(direct, { headers: { 'x-contest-source': 'direct' } });
-    }
-
-    // Fallback to Kontests
-    const fallbackContests = await fetchFromKontests();
-    if (fallbackContests.length > 0) {
-      console.log('[api/contests] source=kontests count=', fallbackContests.length);
-      return NextResponse.json(fallbackContests, { headers: { 'x-contest-source': 'kontests' } });
-    }
-
-    console.log('[api/contests] source=none count=0');
-    return NextResponse.json([], { headers: { 'x-contest-source': 'none' } });
+  const direct = await fetchFromDirectSources();
+  if (direct.length > 0) {
+    console.log('[api/contests] source=direct count=', direct.length);
+    return NextResponse.json(direct, { headers: { 'x-contest-source': 'direct' } });
   }
+  console.log('[api/contests] source=none count=0');
+  return NextResponse.json([], { headers: { 'x-contest-source': 'none' } });
 }

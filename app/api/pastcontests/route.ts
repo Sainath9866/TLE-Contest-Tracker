@@ -1,5 +1,22 @@
 import { NextResponse } from 'next/server';
-import { CListResponse, CListContest } from '@/types/clist';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 9;
+
+const DEFAULT_TIMEOUT = 3500;
+const UA = 'TLEContestTracker/1.0 (+https://tle-contest-tracker.vercel.app)';
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const headers = new Headers(init.headers as HeadersInit | undefined);
+    if (!headers.has('User-Agent')) headers.set('User-Agent', UA);
+    return await fetch(url, { ...init, signal: controller.signal, cache: 'no-store', headers });
+  } finally {
+    clearTimeout(id);
+  }
+}
 
 interface Contest {
   id: number;
@@ -12,18 +29,6 @@ interface Contest {
   status: 'upcoming' | 'ongoing' | 'past';
 }
 
-// Fallback types for Kontests API
-interface KontestsContest {
-  name: string;
-  url: string;
-  start_time: string;
-  end_time: string;
-  duration: string; // seconds as string
-  site: string; // e.g., 'CodeForces', 'CodeChef', 'LeetCode'
-  status: 'BEFORE' | 'CODING' | 'FINISHED';
-}
-
-// Direct API types
 interface CFContestListResponse {
   status: 'OK' | 'FAILED';
   result: Array<{
@@ -61,14 +66,6 @@ interface CodeChefResponse {
   }>;
 }
 
-function platformFromSite(site: string): string {
-  const s = site.toLowerCase();
-  if (s.includes('codeforces')) return 'codeforces';
-  if (s.includes('codechef')) return 'codechef';
-  if (s.includes('leetcode')) return 'leetcode';
-  return site.toLowerCase();
-}
-
 function generateId(site: string, name: string, start: string | number): number {
   const seed = typeof start === 'number' ? start : new Date(start).getTime();
   const key = `${site}|${name}|${seed}`;
@@ -80,62 +77,9 @@ function generateId(site: string, name: string, start: string | number): number 
   return Math.abs(hash);
 }
 
-async function fetchPastFromKontests(twoMonthsAgoISO: string, nowISO: string): Promise<Contest[]> {
-  try {
-    const endpoints = [
-      'https://kontests.net/api/v1/codeforces',
-      'https://kontests.net/api/v1/code_chef',
-      'https://kontests.net/api/v1/leet_code',
-    ];
-
-    const results = await Promise.allSettled(
-      endpoints.map((u) => fetch(u).then((r) => r.json() as Promise<KontestsContest[]>))
-    );
-
-    const flattened: KontestsContest[] = results.flatMap((res) =>
-      res.status === 'fulfilled' && Array.isArray(res.value) ? res.value : []
-    );
-
-    const twoMonthsAgo = new Date(twoMonthsAgoISO);
-    const now = new Date(nowISO);
-
-    const mapped: Contest[] = flattened
-      .filter((c) => c.status === 'FINISHED')
-      .map((c) => {
-        const startTime = new Date(c.start_time);
-        const endTime = new Date(c.end_time);
-        return {
-          id: generateId(c.site, c.name, c.start_time),
-          name: c.name,
-          platform: platformFromSite(c.site),
-          url: c.url,
-          startTime,
-          endTime,
-          duration: Number(c.duration) / 3600,
-          status: 'past',
-        } as Contest;
-      })
-      .filter((c) => c.endTime >= twoMonthsAgo && c.endTime <= now);
-
-    mapped.sort((a, b) => b.endTime.getTime() - a.endTime.getTime());
-
-    const seen = new Set<string>();
-    const deduped = mapped.filter((c) => {
-      const key = `${c.platform}|${c.name}|${c.startTime.toISOString()}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    return deduped;
-  } catch {
-    return [];
-  }
-}
-
 async function fetchPastFromCodeforcesDirect(twoMonthsAgoISO: string, nowISO: string): Promise<Contest[]> {
   try {
-    const res = await fetch('https://codeforces.com/api/contest.list');
+    const res = await fetchWithTimeout('https://codeforces.com/api/contest.list');
     const data = (await res.json()) as CFContestListResponse;
     if (data.status !== 'OK') return [];
     const twoMonthsAgo = new Date(twoMonthsAgoISO);
@@ -166,7 +110,7 @@ async function fetchPastFromCodeforcesDirect(twoMonthsAgoISO: string, nowISO: st
 async function fetchPastFromLeetCodeDirect(twoMonthsAgoISO: string, nowISO: string): Promise<Contest[]> {
   try {
     const body = { query: `query getContestList { allContests { title startTime duration titleSlug } }` };
-    const res = await fetch('https://leetcode.com/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const res = await fetchWithTimeout('https://leetcode.com/graphql', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const json = (await res.json()) as LeetCodeGqlResponse;
     const list = json.data?.allContests ?? [];
     const twoMonthsAgoMs = new Date(twoMonthsAgoISO).getTime();
@@ -196,7 +140,7 @@ async function fetchPastFromLeetCodeDirect(twoMonthsAgoISO: string, nowISO: stri
 
 async function fetchPastFromCodeChefDirect(twoMonthsAgoISO: string, nowISO: string): Promise<Contest[]> {
   try {
-    const res = await fetch('https://www.codechef.com/api/list/contests/all');
+    const res = await fetchWithTimeout('https://www.codechef.com/api/list/contests/all');
     const json = (await res.json()) as CodeChefResponse;
     const past = [...(json.present_contests ?? []), ...(json.past_contests ?? [])];
     const twoMonthsAgo = new Date(twoMonthsAgoISO);
@@ -224,88 +168,29 @@ async function fetchPastFromCodeChefDirect(twoMonthsAgoISO: string, nowISO: stri
 }
 
 export async function GET() {
-  try {
-    const API_USERNAME = process.env.CLIST_USERNAME;
-    const API_KEY = process.env.CLIST_API_KEY;
+  const now = new Date();
+  const twoMonthsAgo = new Date();
+  twoMonthsAgo.setMonth(now.getMonth() - 2);
 
-    if (!API_USERNAME || !API_KEY) {
-      throw new Error('API credentials not configured');
-    }
+  const [cf, lc, cc] = await Promise.all([
+    fetchPastFromCodeforcesDirect(twoMonthsAgo.toISOString(), now.toISOString()),
+    fetchPastFromLeetCodeDirect(twoMonthsAgo.toISOString(), now.toISOString()),
+    fetchPastFromCodeChefDirect(twoMonthsAgo.toISOString(), now.toISOString())
+  ]);
+  const merged = [...cf, ...lc, ...cc];
+  if (merged.length > 0) {
+    const seen = new Set<string>();
+    const deduped = merged.filter((c) => {
+      const key = `${c.platform}|${c.name}|${c.startTime.toISOString()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort((a, b) => b.endTime.getTime() - a.endTime.getTime());
 
-    const now = new Date();
-    const twoMonthsAgo = new Date();
-    twoMonthsAgo.setMonth(now.getMonth() - 2);
-
-    const nowISO = now.toISOString();
-    const twoMonthsAgoISO = twoMonthsAgo.toISOString();
-
-    const url = `https://clist.by/api/v2/contest/?username=${API_USERNAME}&api_key=${API_KEY}&resource__regex=codeforces.com|codechef.com|leetcode.com&end__gt=${twoMonthsAgoISO}&end__lt=${nowISO}`;
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`CLIST API returned ${response.status}`);
-    }
-
-    const data = (await response.json()) as CListResponse;
-    if (!data || !data.objects || !Array.isArray(data.objects)) {
-      throw new Error('Invalid API response structure');
-    }
-
-    if (data.objects.length === 0) {
-      console.log('[api/pastcontests] source=clist count=0');
-      return NextResponse.json([], { headers: { 'x-contest-source': 'clist' } });
-    }
-
-    const contests: Contest[] = data.objects.map((contest: CListContest) => {
-      return {
-        id: contest.id,
-        name: contest.event,
-        platform: contest.resource.split('.')[0],
-        url: contest.href,
-        startTime: new Date(contest.start),
-        endTime: new Date(contest.end),
-        duration: (new Date(contest.end).getTime() - new Date(contest.start).getTime()) / (1000 * 60 * 60),
-        status: 'past',
-      };
-    });
-
-    const recentContests = contests.sort((a, b) => b.endTime.getTime() - a.endTime.getTime());
-    console.log('[api/pastcontests] source=clist count=', recentContests.length);
-    return NextResponse.json(recentContests, { headers: { 'x-contest-source': 'clist' } });
-  } catch {
-    const now = new Date();
-    const twoMonthsAgo = new Date();
-    twoMonthsAgo.setMonth(now.getMonth() - 2);
-
-    // Try direct sources
-    const [cf, lc, cc] = await Promise.all([
-      fetchPastFromCodeforcesDirect(twoMonthsAgo.toISOString(), now.toISOString()),
-      fetchPastFromLeetCodeDirect(twoMonthsAgo.toISOString(), now.toISOString()),
-      fetchPastFromCodeChefDirect(twoMonthsAgo.toISOString(), now.toISOString())
-    ]);
-    const merged = [...cf, ...lc, ...cc];
-    if (merged.length > 0) {
-      // Deduplicate
-      const seen = new Set<string>();
-      const deduped = merged.filter((c) => {
-        const key = `${c.platform}|${c.name}|${c.startTime.toISOString()}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }).sort((a, b) => b.endTime.getTime() - a.endTime.getTime());
-
-      console.log('[api/pastcontests] source=direct count=', deduped.length);
-      return NextResponse.json(deduped, { headers: { 'x-contest-source': 'direct' } });
-    }
-
-    // Fallback to Kontests
-    const fallbackContests = await fetchPastFromKontests(twoMonthsAgo.toISOString(), now.toISOString());
-    if (fallbackContests.length > 0) {
-      console.log('[api/pastcontests] source=kontests count=', fallbackContests.length);
-      return NextResponse.json(fallbackContests, { headers: { 'x-contest-source': 'kontests' } });
-    }
-
-    console.log('[api/pastcontests] source=none count=0');
-    return NextResponse.json([], { headers: { 'x-contest-source': 'none' } });
+    console.log('[api/pastcontests] source=direct count=', deduped.length);
+    return NextResponse.json(deduped, { headers: { 'x-contest-source': 'direct' } });
   }
+
+  console.log('[api/pastcontests] source=none count=0');
+  return NextResponse.json([], { headers: { 'x-contest-source': 'none' } });
 }
