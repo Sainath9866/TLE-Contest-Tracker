@@ -11,9 +11,21 @@ export function usePastContests() {
       try {
         const response = await fetch('/api/pastcontests');
         const data = await response.json();
-        setContests(data);
+
+        if (!response.ok) {
+          const message = (data && typeof data === 'object' && 'error' in data) ? (data.error as string) : 'Failed to fetch past contests';
+          throw new Error(message);
+        }
+
+        if (Array.isArray(data)) {
+          setContests(data as Contest[]);
+        } else {
+          setContests([]);
+          setError('Unexpected response format for past contests');
+        }
       } catch (err) {
-        setError('Failed to fetch past contests');
+        setError(err instanceof Error ? err.message : 'Failed to fetch past contests');
+        setContests([]);
       } finally {
         setLoading(false);
       }

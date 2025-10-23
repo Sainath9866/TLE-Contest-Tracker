@@ -125,18 +125,28 @@ export default function Home() {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredContests.map((contest) => (
-          <ContestCard 
-            key={contest.id} 
-            contest={{
-              ...contest,
-              startTime: adjustTime(contest.startTime),
-              endTime: adjustTime(contest.endTime)
-            }} 
-          />
-        ))}
-      </div>
+      {filteredContests.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center text-gray-600">
+          <svg className="w-12 h-12 mb-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6a2 2 0 00-2-2H5m14 8V7a2 2 0 00-2-2h-3M7 17h10m-8 4h6" />
+          </svg>
+          <p className="text-lg font-medium">No contests available right now.</p>
+          <p className="text-sm mt-1">Try a different filter or check back later.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredContests.map((contest) => (
+            <ContestCard 
+              key={contest.id} 
+              contest={{
+                ...contest,
+                startTime: adjustTime(contest.startTime),
+                endTime: adjustTime(contest.endTime)
+              }} 
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
