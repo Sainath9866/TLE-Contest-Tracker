@@ -10,10 +10,17 @@ export function usePastContests() {
     async function fetchContests() {
       try {
         const response = await fetch('/api/pastcontests');
-        const data = await response.json();
+        const text = await response.text();
+        let data: unknown;
+        try {
+          data = text ? JSON.parse(text) : [];
+        } catch (parseErr) {
+          console.error('[usePastContests] Non-JSON response body:', text);
+          throw new Error('Unexpected non-JSON response from /api/pastcontests');
+        }
 
         if (!response.ok) {
-          const message = (data && typeof data === 'object' && 'error' in data) ? (data.error as string) : 'Failed to fetch past contests';
+          const message = (data && typeof data === 'object' && 'error' in (data as Record<string, unknown>)) ? ((data as Record<string, unknown>).error as string) : 'Failed to fetch past contests';
           throw new Error(message);
         }
 
@@ -24,6 +31,7 @@ export function usePastContests() {
           setError('Unexpected response format for past contests');
         }
       } catch (err) {
+        console.error('[usePastContests] Error fetching past contests:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch past contests');
         setContests([]);
       } finally {
