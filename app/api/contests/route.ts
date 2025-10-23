@@ -131,7 +131,7 @@ async function fetchFromKontests(): Promise<Contest[]> {
     });
 
     return deduped;
-  } catch (e) {
+  } catch {
     return [];
   }
 }
@@ -301,7 +301,7 @@ export async function GET() {
 
     console.log('[api/contests] source=clist count=', relevantContests.length);
     return NextResponse.json(relevantContests, { headers: { 'x-contest-source': 'clist' } });
-  } catch (error) {
+  } catch {
     // Try direct sources first
     const direct = await fetchFromDirectSources();
     if (direct.length > 0) {

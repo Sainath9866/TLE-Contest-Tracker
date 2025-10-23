@@ -128,17 +128,9 @@ async function fetchPastFromKontests(twoMonthsAgoISO: string, nowISO: string): P
     });
 
     return deduped;
-  } catch (e) {
+  } catch {
     return [];
   }
-}
-
-function toISTString(date: Date): string {
-  return new Intl.DateTimeFormat('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    dateStyle: 'medium',
-    timeStyle: 'medium'
-  }).format(date);
 }
 
 async function fetchPastFromCodeforcesDirect(twoMonthsAgoISO: string, nowISO: string): Promise<Contest[]> {
@@ -280,7 +272,7 @@ export async function GET() {
     const recentContests = contests.sort((a, b) => b.endTime.getTime() - a.endTime.getTime());
     console.log('[api/pastcontests] source=clist count=', recentContests.length);
     return NextResponse.json(recentContests, { headers: { 'x-contest-source': 'clist' } });
-  } catch (error) {
+  } catch {
     const now = new Date();
     const twoMonthsAgo = new Date();
     twoMonthsAgo.setMonth(now.getMonth() - 2);
